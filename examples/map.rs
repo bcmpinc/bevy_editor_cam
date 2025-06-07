@@ -40,7 +40,7 @@ fn setup(
         EditorCam {
             orbit_constraint: OrbitConstraint::Fixed {
                 up: Vec3::Y,
-                can_pass_tdc: false,
+                pitch_limits: Some(PitchLimits::default()),
             },
             last_anchor_depth: -translation.length() as f64,
             ..Default::default()
@@ -123,7 +123,7 @@ fn setup_ui(mut commands: Commands) {
         Left Mouse  - Pan
         Right Mouse - Orbit
         Scroll      - Zoom
-        P           - Toggle projection       
+        P           - Toggle projection
     "};
     commands.spawn((
         Text::new(text),

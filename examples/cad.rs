@@ -115,7 +115,7 @@ fn toggle_constraint(
             OrbitConstraint::Free => {
                 editor.orbit_constraint = OrbitConstraint::Fixed {
                     up: Vec3::Y,
-                    can_pass_tdc: false,
+                    pitch_limits: Some(PitchLimits::default())
                 };
 
                 look_to.write(LookToTrigger::auto_snap_up_direction(

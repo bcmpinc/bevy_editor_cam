@@ -494,7 +494,7 @@ impl EditorCam {
         let orbit_multiplier = 0.005;
         if orbit.is_finite() && orbit.length() != 0.0 {
             match self.orbit_constraint {
-                OrbitConstraint::Fixed { up, can_pass_tdc } => {
+                OrbitConstraint::Fixed { up, pitch_limits } => {
                     let epsilon = 1e-3;
                     let motion_threshold = 1e-5;
 
@@ -502,12 +502,15 @@ impl EditorCam {
                     let angle_to_tdc = cam_transform.forward().angle_between(-up) as f64;
                     let pitch_angle = {
                         let desired_rotation = orbit.y * orbit_multiplier;
-                        if can_pass_tdc {
-                            desired_rotation
-                        } else if desired_rotation >= 0.0 {
-                            desired_rotation.min(angle_to_tdc - (epsilon as f64).min(angle_to_tdc))
-                        } else {
-                            desired_rotation.max(-angle_to_bdc + (epsilon as f64).min(angle_to_bdc))
+                        match pitch_limits {
+                            None => desired_rotation,
+                            Some(limit) => {
+                                if desired_rotation >= 0.0 {
+                                    desired_rotation.min(angle_to_tdc - limit.top).max(0.0)
+                                } else {
+                                    desired_rotation.max(-angle_to_bdc + limit.bottom).min(0.0)
+                                }
+                            },
                         }
                     };
                     let pitch = if pitch_angle.abs() <= motion_threshold {
@@ -575,9 +578,10 @@ pub enum OrbitConstraint {
     Fixed {
         /// The camera's up direction must always be parallel with this unit vector.
         up: Vec3,
-        /// Should the camera be allowed to pass over top dead center (TDC), making the camera
+        /// What limits should be applied to the camera pitch?
+        /// If `None` the camera is allowed to pass over top dead center (TDC), making the camera
         /// upside down compared to the up direction?
-        can_pass_tdc: bool,
+        pitch_limits: Option<PitchLimits>,
     },
     /// The camera's up direction is free.
     Free,
@@ -587,7 +591,35 @@ impl Default for OrbitConstraint {
     fn default() -> Self {
         Self::Fixed {
             up: Vec3::Y,
-            can_pass_tdc: false,
+            pitch_limits: Some(PitchLimits::default()),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Reflect)]
+pub struct PitchLimits {
+    top: f64,
+    bottom: f64,
+}
+
+impl PitchLimits {
+    pub fn new(lower: f64, upper: f64) -> Option<Self> {
+        assert!(lower <= upper);
+        use std::f64::consts::FRAC_PI_2;
+        let epsilon: f64 = 1e-3;
+        Some(Self {
+            top: epsilon.max(FRAC_PI_2 - upper),
+            bottom: epsilon.max(FRAC_PI_2 + lower),
+        })
+    }
+}
+
+impl Default for PitchLimits {
+    fn default() -> Self {
+        let epsilon = 1e-3;
+        Self {
+            bottom: epsilon,
+            top: epsilon,
         }
     }
 }
